@@ -84,7 +84,7 @@ def treinar_modelo(modelo, dataloaders, criterio, otimizador, num_epocas=25, dev
 
 if __name__ == '__main__':
     # 1. Configurações Iniciais
-    diretorio_dados = r"C:\Users\NOTEBOOK\Documents\Mestrado\Projeto_Ateroma_Tópicos\Dataset_Dividido"
+    diretorio_dados = r"C:\Users\NOTEBOOK\Documents\Mestrado\Projeto_Ateroma_Tópicos\Dataset_Recortado_Modelado"
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"Treinando em: {device}")
 

@@ -2,5 +2,6 @@
 "*.pth" 
 "__pycache__/" 
 "Dataset_Ateroma_1/" 
+"Dataset_Recortado_Modelado/"
 "*.pth" 
 "__pycache__/" 
