@@ -80,5 +80,88 @@ def visualizar_gradcam():
     print("Mapa de Calor gerado e salvo como 'heatmap_gradcam.png'!")
     plt.show()
 
+def visualizar_gradcam_kfold():
+    # ==========================================
+    # 1. CONFIGURAÇÕES
+    # ==========================================
+    ARQUITETURA_ATUAL = 'efficientnet_b4'
+    FOLD_ESCOLHIDO = 1  # Pode alterar de 1 a 5 se quiser ver a opinião de outros folds
+    
+    caminho_pesos = f"melhor_modelo_{ARQUITETURA_ATUAL}_fold_{FOLD_ESCOLHIDO}.pth"
+    pasta_ateroma = "Dataset_Recortado_Modelado/teste/com_ateroma"
+    
+    if not os.path.exists(caminho_pesos):
+        print(f"Erro: Arquivo de pesos '{caminho_pesos}' não encontrado.")
+        return
+
+    # Lista os arquivos e pega o primeiro para o teste visual
+    imagens = [f for f in os.listdir(pasta_ateroma) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+    if not imagens:
+        print("Nenhuma imagem encontrada na pasta de teste.")
+        return
+        
+    caminho_imagem = os.path.join(pasta_ateroma, imagens[0])
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # ==========================================
+    # 2. CARREGAMENTO DO MODELO (FOLD ESPECÍFICO)
+    # ==========================================
+    modelo = CACClassifier(model_name=ARQUITETURA_ATUAL, num_classes=1, pretrained=False)
+    modelo.load_state_dict(torch.load(caminho_pesos, map_location=device))
+    modelo = modelo.to(device)
+    modelo.eval()
+
+    # Varredura automática para encontrar a última camada convolucional
+    def obter_ultima_camada_conv(mod):
+        ultima_conv = None
+        for camada in mod.modules():
+            if isinstance(camada, torch.nn.Conv2d):
+                ultima_conv = camada
+        return ultima_conv
+
+    target_layers = [obter_ultima_camada_conv(modelo)]
+
+    # ==========================================
+    # 3. PROCESSAMENTO E GRAD-CAM
+    # ==========================================
+    img_pil = Image.open(caminho_imagem).convert('RGB')
+    input_tensor = teste_transforms(img_pil).unsqueeze(0).to(device)
+
+    # Imagem base para sobreposição
+    img_redimensionada = img_pil.resize((224, 224))
+    img_base_rgb = np.float32(img_redimensionada) / 255.0
+
+    # Executa o Grad-CAM focando na classe predita
+    cam = GradCAM(model=modelo, target_layers=target_layers)
+    targets = [ClassifierOutputTarget(0)] 
+    
+    grayscale_cam = cam(input_tensor=input_tensor, targets=targets)
+    grayscale_cam = grayscale_cam[0, :]
+
+    # Mescla o mapa térmico com a radiografia
+    visualizacao = show_cam_on_image(img_base_rgb, grayscale_cam, use_rgb=True)
+
+    # ==========================================
+    # 4. PLOTAGEM
+    # ==========================================
+    plt.figure(figsize=(10, 5))
+    
+    plt.subplot(1, 2, 1)
+    plt.imshow(img_redimensionada)
+    plt.title('Radiografia Original (ROI)')
+    plt.axis('off')
+    
+    plt.subplot(1, 2, 2)
+    plt.imshow(visualizacao)
+    plt.title(f'Grad-CAM ({ARQUITETURA_ATUAL.upper()} - Fold {FOLD_ESCOLHIDO})')
+    plt.axis('off')
+    
+    plt.tight_layout()
+    nome_grafico = f'heatmap_gradcam_{ARQUITETURA_ATUAL}_fold_{FOLD_ESCOLHIDO}.png'
+    plt.savefig(nome_grafico, dpi=300, bbox_inches='tight')
+    print(f"✅ Mapa de Calor gerado com sucesso e salvo como '{nome_grafico}'!")
+    plt.show()
+
 if __name__ == '__main__':
-    visualizar_gradcam()
+    #visualizar_gradcam()
+    visualizar_gradcam_kfold()
